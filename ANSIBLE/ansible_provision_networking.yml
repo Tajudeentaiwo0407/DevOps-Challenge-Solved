@@ -1,0 +1,100 @@
+---
+- name: This creates the primary VPC for cluster on AWS
+  amazon.aws.ec2_vpc_net:
+    name: "{{ AWS_PREFIX }}-VPC"
+    cidr_block: "{{ vpc_cidr }}"
+    region: "{{ region }}"
+  register: aws_vpc_info
+- name: This creates the first subnet for the DB 
+  amazon.aws.ec2_vpc_subnet:
+    cidr: "{{ subnet_cidr_1 }}"
+    region: "{{ region }}"
+    az: "{{ region_az_1 }}"
+    vpc_id: "{{ aws_vpc_info.vpc.id }}"
+    tags:
+      Name: "{{ AWS_PREFIX }}-SUBNET1"
+  register: aws_subnet_info_1
+- name: This creates the second subnet for the DB
+  amazon.aws.ec2_vpc_subnet:
+    cidr: "{{ subnet_cidr_2 }}"
+    region: "{{ region }}"
+    az: "{{ region_az_2 }}"
+    vpc_id: "{{ aws_vpc_info.vpc.id }}"
+    tags:
+      Name: "{{ AWS_PREFIX }}-SUBNET2"
+  register: aws_subnet_info_2
+- name: This creates the DB subnet group
+  community.aws.rds_subnet_group:
+    state: present
+    name: "{{ AWS_PREFIX }}-subnet_group"
+    region: "{{ region }}"
+    description: DB subnet
+    subnets:
+      - "{{ aws_subnet_info_1.subnet.id }}"
+      - "{{ aws_subnet_info_2.subnet.id }}"
+  register: aws_db_subnet
+- name: This creates the Internet Gateway 
+  ec2_vpc_igw:
+    vpc_id: "{{ aws_vpc_info.vpc.id }}"
+    region: "{{ region }}"
+    tags:
+      Name: "{{ AWS_PREFIX }}-IGW"
+  register: aws_igw_info
+- name: This creates the Route Table
+  amazon.aws.ec2_vpc_route_table:
+    subnets:
+      - "{{ aws_subnet_info_1.subnet.id }}"
+    routes:
+      - dest: 0.0.0.0/0
+        gateway_id: "{{ aws_igw_info.gateway_id }}"
+    region: "{{ region }}"
+    vpc_id: "{{ aws_vpc_info.vpc.id }}"
+    tags:
+      Name: "{{ AWS_PREFIX }}-RTBL"
+  register: aws_rtb_info
+- name: This creates a security group for the ec2-instance
+  amazon.aws.ec2_group:
+    name: "{{ AWS_PREFIX }}-Security-Group-App"
+    description: This is the security group to open port 1337 and 80
+    vpc_id: "{{ aws_vpc_info.vpc.id }}"
+    region: "{{ region }}"
+    rules: 
+      - proto: tcp
+        ports: 
+          - 1337
+          - 80
+        cidr_ip: 0.0.0.0/0
+  register: aws_security_group_app_info
+- name: This creates a security group for the loadbalancer
+  amazon.aws.ec2_group:
+    name: "{{ AWS_PREFIX }}-Security-Group-Load Balancer"
+    description: This is the security group to open port 80 and 443
+    vpc_id: "{{ aws_vpc_info.vpc.id }}"
+    region: "{{ region }}"
+    rules:
+      - proto: tcp
+        ports:
+          - 80
+          - 443
+        cidr_ip: 0.0.0.0/0
+  register: aws_security_group_lb_info
+- name: This creates a security group for the Database
+  amazon.aws.ec2_group:
+    name: "{{ AWS_PREFIX }}-Security-Group-DB"
+    description: This is the security group to open port 80, 443 and 1337
+    vpc_id: "{{ aws_vpc_info.vpc.id }}"
+    region: "{{ region }}"
+    rules: 
+      - proto: tcp
+        ports:
+          - 1337
+        cidr_ip: 0.0.0.0/0
+      - proto: tcp
+        ports: 
+          - 80
+        cidr_ip: 0.0.0.0/0
+      - proto: tcp
+        ports: 
+          - 443
+        cidr_ip: 0.0.0.0/0
+  register: aws_security_group_db_info

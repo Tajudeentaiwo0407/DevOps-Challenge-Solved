@@ -1,0 +1,45 @@
+---
+- name: This block creates a key pair for the ec2 instance
+  amazon.aws.ec2_key:
+    name: "{{ AWS_PREFIX }}_key"
+    key_material: "{{ lookup('file', '/root/.ssh/id_rsa.pub') }}"
+    region: "{{ region }}"
+    tags:
+      Name: "{{ AWS_PREFIX }}_key"
+  register: aws_keypair_info
+- name: This creates an ec2-instance
+  amazon.aws.ec2_instance:
+    name: "{{ AWS_PREFIX }}-APP"
+    vpc_subnet_id: "{{ aws_subnet_info_1.subnet.id }}"
+    instance_type: t2.micro
+    security_group: "{{ aws_security_group_app_info.group_id }}"
+    key_name: "{{ AWS_PREFIX }}_key" 
+    image_id: "ami-0493936afbe820b28"
+    state: running
+    user_data: "{{ lookup('file', '/root/ansible/ansible-new/userdata.txt' ) }}"  
+    region: "{{ region }}"
+    tags:
+      Course: "{{ AWS_PREFIX }}"
+      Role: "APP"
+    network: 
+      assign_public_ip: true
+  register: ec2_instance_data 
+  tags: provision       
+- name: This gathers information about a particular instance using ID
+  amazon.aws.ec2_instance_info: 
+    instance_ids:
+      - "{{ ec2_instance_data }}"
+  tags: info 
+
+
+
+#- name: Terminate instances
+#amazon.aws.ec2_instance:
+#instance_ids: "{{ ec2_instances.instances | map(attribute='instance_id') }}"
+#state: terminated
+#wait: no
+# when: ec2_instances.instances | length > 0
+# tags:
+#- destroy
+      
+

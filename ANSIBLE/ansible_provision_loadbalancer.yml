@@ -1,0 +1,51 @@
+---
+- name: creates a target group with instance targets
+  community.aws.elb_target_group:
+    name: "devcha-target-group"
+    protocol: http
+    port: 81
+    vpc_id: "{{ aws_vpc_info.vpc.id }}"
+    region: "{{ region }}"
+    health_check_protocol: http
+    health_check_path: /
+    successful_response_codes: "200,250-260"
+    targets:
+      - Id: "i-01ec70d08c7839822"
+        Port: 80
+      - Id: "i-01ec70d08c7839822"
+        Port: 443
+    state: present
+    wait_timeout: 200
+    wait: True
+    tags:
+      Name: "devcha-target-group"
+  register: aws_target_group_data
+  tags: provision
+- name: creates an application loadbalancer for the instance
+  community.aws.elb_application_lb:
+    name: "{{ AWS_PREFIX }}-application-load-balancer"
+    security_groups:
+      - "{{ aws_security_group_lb_info.group_id }}"
+    region: "{{ region }}"
+    subnets:
+      - "{{ aws_subnet_info_1.subnet.id }}"
+      - "{{ aws_subnet_info_2.subnet.id }}" 
+    listeners:
+      - Protocol: HTTP 
+        Port: 80 
+        DefaultActions:
+          - Type: forward
+            TargetGroupName: "devcha-target-group"
+      - Protocol: HTTPS
+        Port: 443
+        SslPolicy: ELBSecurityPolicy-2016-08
+        Certificates:
+        - CertificateArn: "{{ upload_crt.certificate.arn }}"   
+        DefaultActions:
+          - Type: forward
+            TargetGroupName: "devcha-target-group"
+    state: present
+    tags:
+      Name: "load balancer"
+  register: aws_lb_data
+  tags: provision

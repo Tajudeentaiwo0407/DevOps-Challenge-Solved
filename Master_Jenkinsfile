@@ -1,0 +1,112 @@
+pipeline{
+    agent any
+    environment{
+        ADMIN_PASSWORD = credentials('admin_password') 
+        BRANCH_NAME="main"
+        DEPLOY_TO="production"
+        DOCKER_HUB=credentials('dockerhub')
+    }
+
+    parameters{
+        choice(choices:['dev','prod','uat'],name:"Environment")
+        password(name:'Admin_password')
+        choice(choices:['infrastructure','CI','CD_Job','Test'],name:'Pipelines')
+        choice(choices: ['dev-cluster','stage-cluster','live-cluster'],name: 'CLUSTER_ENV')
+    }
+//checkoutcode
+    stages{
+        stage('CheckOutCode'){
+            steps{
+                script{
+                    if ( "${params.Environment}" == 'dev'){
+                        checkout([$class: 'GitSCM', branches: [[name: '*/master']], extensions: [], userRemoteConfigs: [[credentialsId: 'github', url: 'https://github.com/Osiephri/Dev_che1']]])
+                    }
+                    else{
+                        echo "This wont last"
+                    }
+                }
+            }
+        }
+//Build Docker images
+            stage('Build image'){
+                steps{
+                    script{
+                    if ( "${params.Environment}" == 'dev' ||  env.BRANCH_NAME == 'master' && ${params.Admin_Password} == ADMIN_PASSWORD){
+                        dir('./validator-frontend/'){ 
+                               sh 'docker version'
+                               sh 'docker images'
+                               sh 'docker build -t dev-che -f ./validator-frontend/dockerfile  .'                             
+                            }
+                    }
+                }
+            }
+        }
+//Login and push built image to hub
+            stage('Push Image to hub'){
+                steps{
+                    script{
+                        if ( "${params.Environment}" == 'dev' || env.BRANCH_NAME == 'main'){
+                            withCredentials([usernamePassword(credentialsId: 'dockerhub', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+                                sh 
+                                ''' 
+                                  
+                                  docker login -u $USER -p $PASS
+                                  docker build -t $USER/devchefrontend:'${env.BUILD_ID}'
+                                  docker push scinet0786/devchefrontend:"${env.BUILD_ID}"
+
+                                '''
+                            }
+                        }
+                    }
+                }
+            }
+//--------------------------------------------------------------------------//
+//                                                                          //
+//         P.A.R.A.M.E.T.E.R.I.Z.E.D   B.U.I.L.D.S   S.E.C.T.I.O.N          //
+//                                                                          //
+//--------------------------------------------------------------------------//
+            stage('BUILD_CD_JOB[INFRASTRUCTURE]'){
+                steps{
+                    script{
+                        def image = input(name:'CD_build',Message:'Build the image and deploy it in a kubernetes cluster',parameters[string(name:'Deploying_to_cluster',value: 'proceed')])
+                        def i = for(i,1<=100,++i)
+                        if (${params.Pipelines == 'infrastructure'}){
+                            build job: "infrastructure" , parameters[string(name: 'infrastructure' , value: 'infrastructure')]
+                        }
+
+                    }
+                }
+            }
+
+            stage('BUILD_CD_JOB[DEPLOY TO SEVERAL CLUSTER ENVIRONMENTS]'){
+                steps{
+                    script{
+                        if ($params.Pipelines == 'CD_Job'){
+                            if (CLUSTER_ENV == 'dev-cluster'){
+                                echo "This will be deployed in the development cluster"
+                            //add the withKubeconfig pipeline syntax
+                            }
+                            else if (CLUSTER_ENV == 'stage-cluster'){
+                                echo "This will be deployed into the staging cluster"
+                            //add the with kubeconfig and kubectl command
+                            }
+                            else{
+                                echo "This will be deployed in the Live Production environment so do well to get access to confirm deployment before proceeding"
+
+                            //add the kubeconfig for the live environments
+                            }
+                        }
+                    }
+                }
+            }
+        
+    }
+//-------------------------------------------------------------------------------------------//
+//                                                                                           //
+//                        P.O.S.T   B.U.I.L.D   J.O.B.S                                      //
+//                                                                                           //
+//-------------------------------------------------------------------------------------------//
+    
+    
+
+}

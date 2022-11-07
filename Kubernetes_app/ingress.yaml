@@ -1,0 +1,23 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata: 
+  name: express-ingress
+  namespace: microservice
+  labels:
+    tier: ingress
+  annotations:
+    nginx.kubernetes.io/rewrite-target: \
+    nginx.kubernetes.io/use-regex: 'true'
+spec:
+  rules:
+  - host: "*.elb.amazonaws.com"
+    http:
+      paths:
+        - path: '/'
+          pathType: Exact
+          backend:
+            service:
+              name: devche-frontendservice
+              port:
+                number: 8081
+

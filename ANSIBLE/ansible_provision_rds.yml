@@ -1,0 +1,169 @@
+---
+- name: This block creates the built in dependency for rds instance
+  ansible.builtin.package:
+    name: python3-psycopg2
+    state: present
+  tags: provision
+- name: This creates an ec2-instance -- connected compute resource - to connect with the database
+  amazon.aws.ec2_instance:
+    name: "{{ AWS_PREFIX }}-db-instance"
+    vpc_subnet_id: "{{ aws_subnet_info_1.subnet.id }}"
+    instance_type: t2.micro
+    security_group: "{{ aws_security_group_app_info.group_id }}"
+    key_name: "{{ AWS_PREFIX }}_key"
+    image_id: "ami-0493936afbe820b28"
+    state: running
+    region: "{{ region }}"
+    tags:
+      Course: "{{ AWS_PREFIX }}-db-instance"
+      Role: "DB"
+    network:
+      assign_public_ip: true
+  register: ec2_instance_db_instance_data
+  tags: provision
+- name: This block creates a RDS instance
+  community.aws.rds_instance:
+    db_instance_identifier: "{{ AWS_PREFIX }}-DB"
+    vpc_security_group_ids: [ "{{ aws_security_group_db_info.group_id }}" ]
+    availability_zone: eu-west-3a
+    engine: postgres
+    region: "{{ region }}"
+    port: "{{ port }}"
+    instance_type: db.m6g.large
+    allocated_storage: 8
+    db_subnet_group_name: devcha-subnet_group
+    db_name: "jumia_phone_validator"
+    username: "postgres"
+    password: "AlexandreRuiArthur"
+    publicly_accessible: yes  
+    tags: 
+      Course: "{{ AWS_PREFIX }}"
+  tags: provision
+  register: aws_rds_instance
+- name: This gets information about the database instance
+  community.aws.rds_instance_info:
+    region: "{{ region }}"
+    db_instance_identifier: "{{ AWS_PREFIX }}-DB"
+  register: aws_rds_info
+  tags: info
+- name: This checks the remote PostgreSQL server availabilty
+  postgresql_ping:
+    db: "jumia_phone_validator"
+    login_host: "{{ aws_rds_info.instances[0].endpoint.address }}"
+    login_user: "postgres"
+    login_password: "AlexandreRuiArthur"
+    port: 1337
+  register: aws_rds_ping_info
+  tags: info
+- name: "Connect to the database, create user -- jumia and grant access to database -- jumiaphonevalidator"
+  community.postgresql.postgresql_user:
+    login_db: "{{ login_db }}"
+    login_host: "{{ login_host }}"
+    login_password: "{{ login_password }}"
+    port: "{{ port }}"
+    name: "jumia"
+    password: "{{ db_user_password }}"
+    expires: "infinity"
+    state: present
+      #groups:
+      #- jumia_rw
+    comment: "This creates a new user jumia"
+  register: rds_create_user
+  tags: provision
+- name: "Connect to the database, create a new role group -- jumia_rw and grant access to database -- jumiaphonevalidator"
+  community.postgresql.postgresql_user:
+    login_db: "{{ login_db }}"
+    login_host: "{{ login_host }}"
+    login_password: "{{ login_password }}"
+    port: 1337
+    name: "jumia_rw"
+    password: "{{ db_user_password }}"
+    expires: "infinity"
+    state: present
+    role_attr_flags: NOLOGIN,CREATEROLE
+    comment: "This creates the group -- jumia_rw"
+  register: rds_create_group_role
+  tags: provision
+- name: This grants the CONNECT privilege to the group role - jumia_rw, in the schema - public
+  community.postgresql.postgresql_privs:
+    login_db: "{{ login_db }}"
+    login_host: "{{ login_host }}"
+    login_password: "{{ login_password }}"
+    login_port: "{{ port }}"
+    privs: CONNECT
+    role: "jumia_rw"
+    state: present
+    type: "database"
+  register: rds_grants_jumia_rw
+  tags: provision
+- name: This grants the USAGE and CREATE privileges to the group role - jumia_rw, in the schema - public
+  community.postgresql.postgresql_privs:
+    login_db: "{{ login_db }}"
+    login_host: "{{ login_host }}"
+    login_password: "{{ login_password }}"
+    login_port: "{{ port }}"
+    privs: USAGE,CREATE
+    role: "jumia_rw"
+    state: present
+    objs: "public"  
+    type: "schema"
+  register: rds_grants_privs_jumia_rw
+  tags: provision    
+- name: This adds the user -- jumia to the group role - jumia_rw, in the schema public
+  community.postgresql.postgresql_membership:
+    login_db: "{{ login_db }}"
+    login_host: "{{ login_host }}"
+    login_password: "{{ login_password }}"
+    login_port: "{{ port }}"
+    group: "jumia_rw"
+    target_role:
+    - "jumia"
+    state: present
+  register: rds_add_user_to_the_role_group  
+  tags: provision
+#- name: This revokes the CREATE priv from the role - public, in the schema - public
+  #community.postgresql.postgresql_privs:
+  #login_db: "jumia_phone_validator"
+  #login_host: "devcha-db.c7ahgks2q3ys.eu-west-3.rds.amazonaws.com"
+  #login_password: "AlexandreRuiArthur"
+  #login_port: 1337
+  #schema: "public"
+  #privs: "CREATE"
+  #role: public
+  #state: absent
+  #objs: ALL_IN_SCHEMA
+  #tags: provision
+  #register: aws_revoke_create_public
+  #comment: This revokes all privileges
+
+
+
+
+
+    #- name: This creates table -- customer, with columns 
+    #community.postgresql.postgresql_table:
+    #login_db: "jumia_phone_validator"
+    #login_host: "devcha-db.c7ahgks2q3ys.eu-west-3.rds.amazonaws.com"
+    #login_password: "AlexandreRuiArthur"
+    #login_port: 1337  
+    #name: "customer"
+    #columns:
+    #- id int
+    #- name varchar(50)
+    #- phone varchar(50)
+    #state: present
+    #register: rds_create_table
+    #tags: provision    
+    #- name: This copies the data from the bare metal to a postgresql table
+    #community.postgresql.postgresql_copy: 
+    #login_db: "jumia_phone_validator"
+    #login_host: "devcha-db.c7ahgks2q3ys.eu-west-3.rds.amazonaws.com"
+    #login_password: "AlexandreRuiArthur"
+    #login_port: 1337
+    #copy_from: /root/ansible/ansible-new/DevOps-Challenge/jumia_phone_validator/database/sample.sql
+    #dst: customer
+    #columns: id,name,phone
+    #options:
+    #  format: csv
+    #register: rds_copy_data
+    #tags: provision

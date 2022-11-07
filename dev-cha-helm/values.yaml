@@ -1,0 +1,15 @@
+# Default values for dev-cha.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+microservice:
+  name: microservice
+  images:
+    names:
+      frontend:
+        name: devchefrontend
+        image: scinet0786/devchefrontend:latest
+      backend:
+         name: devchebackend
+         image: scinet0786/devchebackend:latest
+
+

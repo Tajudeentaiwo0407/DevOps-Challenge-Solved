@@ -1,0 +1,17 @@
+version: '2'
+services:
+    backend:
+         image: scinet0786/devchebackend:latest
+         ports:
+           - "8080:8080"
+         networks:
+            - app-network
+       
+    frontend:
+         image: scinet0786/devchefrontend:latest
+         ports:
+            - "8081:8081"
+         networks:
+            - app-network
+networks:
+  - app-network

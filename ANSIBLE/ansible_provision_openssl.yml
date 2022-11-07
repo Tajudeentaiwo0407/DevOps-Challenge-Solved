@@ -1,0 +1,33 @@
+---
+- name: Generate an OpenSSL private key with the default valuese
+  community.crypto.openssl_privatekey:
+    path: /etc/ssl/private/ansible.com.pem
+  tags: provision
+- name: Get information on generated key
+  community.crypto.openssl_privatekey_info:
+    path: /etc/ssl/private/ansible.com.pem
+  register: aws_private_key_info
+  tags: info    
+- name: Generate an OpenSSL Certificate Signing Request
+  community.crypto.openssl_csr:
+    path: /etc/ssl/private/ansible.com.csr
+    privatekey_path: /etc/ssl/private/ansible.com.pem
+    common_name: www.ansible.com
+  register: aws_openssl_csr
+  tags: provision
+- name: Generate a Self Signed OpenSSL certificate
+  community.crypto.x509_certificate:
+    path: /etc/ssl/private/ansible.com.crt
+    privatekey_path: /etc/ssl/private/ansible.com.pem
+    csr_path: /etc/ssl/private/ansible.com.csr
+    provider: selfsigned
+  register: aws_openssl_crt
+  tags: provision
+- name: upload a self-signed certificate
+  community.aws.aws_acm:
+    certificate: "{{ lookup('file', '/etc/ssl/private/ansible.com.crt' ) }}"
+    private_key: "{{ lookup('file', '/etc/ssl/private/ansible.com.pem' ) }}"
+    name_tag: "{{ AWS_PREFIX }}-cert"
+    region: "{{ region }}"
+  register: upload_crt
+  tags: provision 

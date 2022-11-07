@@ -1,0 +1,83 @@
+---
+- hosts: localhost
+  gather_facts: no
+  vars: 
+    AWS_PREFIX: devcha
+    vpc_cidr: 10.90.0.0/16
+    subnet_cidr_1: 10.90.10.0/24
+    subnet_cidr_2: 10.90.20.0/24
+    region: eu-west-3
+    region_az_1: eu-west-3a
+    region_az_2: eu-west-3b
+    login_host: devcha-db.c7ahgks2q3ys.eu-west-3.rds.amazonaws.com
+    login_password: AlexandreRuiArthur
+    port: 1337
+    login_db: jumia_phone_validator  
+    db_user_password: RuiAlexandreArthur
+    load_balancer_ip:  devcha-application-load-balancer-1977630598.eu-west-3.elb.amazonaws.com  
+  tasks:
+    - name: create the network requirements for the RDS
+      import_tasks: ansible_provision_networking.yml
+      tags: provision
+    - name: create EC2-instance infrastructure for microservice
+      include_tasks: ansible_provision_microservice.yml
+      tags: provision    
+    - name: create RDS infrastructure
+      include_tasks: ansible_provision_rds.yml
+      tags: provision  
+    - name: gets info from database
+      include_tasks: ansible_provision_rds.yml
+      tags: info
+    - name: debug RDS info
+      debug: { msg: "The dababase host is {{ aws_rds_info.instances[0].endpoint.address }}" }
+      tags: info
+    - name: create a certificate for an openssl
+      include_tasks: ansible_provision_openssl.yml
+      tags: provision 
+    - name: creates load balancer
+      include_tasks: ansible_provision_loadbalancer.yml
+      tags: provision
+    - name: gather information about all instances
+      include_tasks: ansible_provision_microservice.yml
+      tags: info
+    - name: installing the firewalls and necessary server requirements
+      include_tasks: ansible_provision_servers_firewalls.yml
+      tags: provisioning   
+    - name: installing all the dependencies for the package    
+      include_tasks: ansible_provision_microservice.yml
+      tags: provisioning  
+        
+        #- hosts: microservice_APP
+        #gather_facts: no
+        #remote_user: ubuntu
+        #become: yes
+        #become_user: root
+        #tasks:
+        #- name: Allow all access to tcp port 1337 for ssh from anywhere
+        #community.general.ufw:
+        #rule: allow
+        #port: 1337
+        #proto: "any"
+        #tags: provisioning
+        #- hosts: microservice_db
+        #gather_facts: no
+        #remote_user: ubuntu
+        #become: yes
+        #become_user: root
+        #tasks:
+        #- name: Allow all request from any port of the microservice_app instance
+        #community.general.ufw:
+        #rule: allow
+        #port: any
+        #proto: "tcp"
+        #from_ip: "{{ load_balancer_ip }}"
+        #tags: provisioning    
+
+
+          #- name: This sets the authorized keys
+          #ansible.posix.authorized_key:
+          #user: ubuntu
+          #state: present
+          #key: "{{ lookup('file', '~/.ssh/devcha') }}"
+          #register: set_authorized_key
+          #tags: provisioning  

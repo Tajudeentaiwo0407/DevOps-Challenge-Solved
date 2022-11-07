@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+   name: dev-che
+   labels:
+      app: backend
+   namespace: microservice
+spec:
+  replicas: 2
+  matchLabels:
+    app: backend
+  template:
+    metadata:
+      matchLabels:
+        app: backend
+    spec:
+        containers:
+          - image: scinet0786/dev-chebackend:latest
+            name: dev-che-backend
+            ports:
+              containerPort: 8081
+            env:
+              - name: PORT_NUMBER:
+                valueFrom:
+                  configMapkeyRef:
+                     name: port-number-CM
+                     key: port_no
+
+---
+apiVersion: v1
+kind: service
+metadata:
+  name: devche-backend-service
+  namesapce: microservice
+spec:
+  ports:
+  - port: 1337
+  selector:
+      app: backend
+    protocol: TCP
