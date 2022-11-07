@@ -36,3 +36,4 @@ Below, shows a working Jumia Phone Validator deployed and showing how Names, Pho
 
 
 ![working_project](./showcase/video.gif)
+![working_project](./showcase/jumia-phone-validator.png)
