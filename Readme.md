@@ -14,7 +14,7 @@ Ansible as a tool doesnt not support windows installation. A windows subsystem f
 
 ## installation
 ```bash
-ansible-playbook ansible-provisioning_tasks.yml --tags provision -v
+ansible-playbook ansible_provisioning_tasks.yml --tags provision -v
 ```
 The above command provisions the resources with tags as specified. Optional tags are also given like provision, info, docker and provisioning to provide the necessary infrastructure for deployment. 
 
@@ -36,4 +36,3 @@ Below, shows a working Jumia Phone Validator deployed and showing how Names, Pho
 
 
 ![working_project](./showcase/video.gif)
-![working_project](./showcase/jumia-phone-validator.png)
