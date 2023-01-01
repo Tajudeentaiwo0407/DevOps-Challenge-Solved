@@ -16,7 +16,7 @@ pipeline{
             step{
                 script{
                     if (${params.environment} == live){
-                        sh"checkout([$class: 'GitSCM', branches: [[name: '*/main']], extensions: [], userRemoteConfigs: [[credentialsId: 'github', url: 'https://github.com/Osiephri/Dev_che1']]])"
+                        checkout([$class: 'GitSCM', branches: [[name: '*/main']], extensions: [], userRemoteConfigs: [[credentialsId: 'github', url: 'https://github.com/Tajudeentaiwo0407/DevOps-Challenge-Solved']]])
                     }
                     else{
                         echo "Failed to checkout"
